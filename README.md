@@ -8,9 +8,9 @@ Clone into `ComfyUI/custom_nodes/` and restart ComfyUI. Node appears in `image/a
 
 ## Usage
 
-- **images**: Your image sequence
-- **start_frames**: Frame(s) to replace at start (auto-resized to match video)
-- **last_frames**: Frame(s) to replace at end (auto-resized to match video)
+- **image_sequence**: Your image sequence (video)
+- **start_frames**: Frame(s) to replace at start (auto-resized to match sequence)
+- **last_frames**: Frame(s) to replace at end (auto-resized to match sequence)
 - **num_start_frames**: How many frames to replace at start (0-10000)
 - **num_last_frames**: How many frames to replace at end (0-10000)
 

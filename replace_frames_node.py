@@ -7,7 +7,7 @@ class ReplaceFirstLastFrames:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "images": ("IMAGE",),
+                "image_sequence": ("IMAGE",),
                 "start_frames": ("IMAGE",),
                 "last_frames": ("IMAGE",),
                 "num_start_frames": ("INT", {
@@ -28,28 +28,28 @@ class ReplaceFirstLastFrames:
         }
     
     RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
+    RETURN_NAMES = ("image_sequence",)
     FUNCTION = "replace_frames"
     CATEGORY = "image/animation"
     
-    def replace_frames(self, images, start_frames, last_frames, num_start_frames, num_last_frames):
+    def replace_frames(self, image_sequence, start_frames, last_frames, num_start_frames, num_last_frames):
         # Get dimensions from the main video
-        target_height = images.shape[1]
-        target_width = images.shape[2]
-        target_channels = images.shape[3]
+        target_height = image_sequence.shape[1]
+        target_width = image_sequence.shape[2]
+        target_channels = image_sequence.shape[3]
         
         # Resize start_frames and last_frames to match video dimensions
         start_frames = self._resize_frames(start_frames, target_height, target_width, target_channels)
         last_frames = self._resize_frames(last_frames, target_height, target_width, target_channels)
         
         # Get batch sizes
-        num_images = images.shape[0]
+        num_images = image_sequence.shape[0]
         num_start_available = start_frames.shape[0]
         num_last_available = last_frames.shape[0]
         
         # Edge case: If no frames to replace, return original
         if num_start_frames <= 0 and num_last_frames <= 0:
-            return (images,)
+            return (image_sequence,)
         
         # Clamp the number of frames to replace to reasonable values
         # If the total requested exceeds available frames, adjust proportionally
@@ -105,7 +105,7 @@ class ReplaceFirstLastFrames:
         middle_end_idx = num_images - num_last_frames
         
         if middle_end_idx > middle_start_idx:
-            middle_frames = images[middle_start_idx:middle_end_idx]
+            middle_frames = image_sequence[middle_start_idx:middle_end_idx]
             parts.append(middle_frames)
         
         # Add last frames if any
@@ -115,7 +115,7 @@ class ReplaceFirstLastFrames:
         # Concatenate all parts
         if len(parts) == 0:
             # Shouldn't happen, but return original as fallback
-            return (images,)
+            return (image_sequence,)
         elif len(parts) == 1:
             output = parts[0]
         else:
