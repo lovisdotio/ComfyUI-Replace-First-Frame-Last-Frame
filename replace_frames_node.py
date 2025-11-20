@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 class ReplaceFirstLastFrames:
     
@@ -32,6 +33,15 @@ class ReplaceFirstLastFrames:
     CATEGORY = "image/animation"
     
     def replace_frames(self, images, start_frames, last_frames, num_start_frames, num_last_frames):
+        # Get dimensions from the main video
+        target_height = images.shape[1]
+        target_width = images.shape[2]
+        target_channels = images.shape[3]
+        
+        # Resize start_frames and last_frames to match video dimensions
+        start_frames = self._resize_frames(start_frames, target_height, target_width, target_channels)
+        last_frames = self._resize_frames(last_frames, target_height, target_width, target_channels)
+        
         # Get batch sizes
         num_images = images.shape[0]
         num_start_available = start_frames.shape[0]
@@ -112,6 +122,49 @@ class ReplaceFirstLastFrames:
             output = torch.cat(parts, dim=0)
         
         return (output,)
+    
+    def _resize_frames(self, frames, target_height, target_width, target_channels):
+        # Check if resize is needed
+        if frames.shape[1] == target_height and frames.shape[2] == target_width and frames.shape[3] == target_channels:
+            return frames
+        
+        # ComfyUI format: [batch, height, width, channels]
+        # PyTorch interpolate needs: [batch, channels, height, width]
+        frames_permuted = frames.permute(0, 3, 1, 2)
+        
+        # Resize spatial dimensions
+        if frames.shape[1] != target_height or frames.shape[2] != target_width:
+            frames_permuted = F.interpolate(
+                frames_permuted,
+                size=(target_height, target_width),
+                mode='bilinear',
+                align_corners=False
+            )
+        
+        # Convert back to ComfyUI format
+        frames_resized = frames_permuted.permute(0, 2, 3, 1)
+        
+        # Handle channel mismatch (e.g., RGB vs RGBA)
+        if frames_resized.shape[3] != target_channels:
+            if target_channels == 3 and frames_resized.shape[3] == 4:
+                # RGBA to RGB: drop alpha
+                frames_resized = frames_resized[:, :, :, :3]
+            elif target_channels == 4 and frames_resized.shape[3] == 3:
+                # RGB to RGBA: add alpha channel (fully opaque)
+                alpha = torch.ones(frames_resized.shape[0], frames_resized.shape[1], frames_resized.shape[2], 1, 
+                                   dtype=frames_resized.dtype, device=frames_resized.device)
+                frames_resized = torch.cat([frames_resized, alpha], dim=3)
+            elif frames_resized.shape[3] == 1 and target_channels == 3:
+                # Grayscale to RGB: repeat channel
+                frames_resized = frames_resized.repeat(1, 1, 1, 3)
+            elif frames_resized.shape[3] == 1 and target_channels == 4:
+                # Grayscale to RGBA: repeat channel + add alpha
+                frames_resized = frames_resized.repeat(1, 1, 1, 3)
+                alpha = torch.ones(frames_resized.shape[0], frames_resized.shape[1], frames_resized.shape[2], 1,
+                                   dtype=frames_resized.dtype, device=frames_resized.device)
+                frames_resized = torch.cat([frames_resized, alpha], dim=3)
+        
+        return frames_resized
     
     def _prepare_frames(self, source_frames, num_needed):
         if num_needed <= 0:
