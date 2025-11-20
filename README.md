@@ -2,6 +2,8 @@
 
 Replace the first and last frames of an image sequence in ComfyUI. Auto-resizes frames to match video dimensions, handles batches, and adjusts parameters if needed.
 
+![Node Preview](node.png)
+
 ## Installation
 
 Clone into `ComfyUI/custom_nodes/` and restart ComfyUI. Node appears in `image/animation`.
