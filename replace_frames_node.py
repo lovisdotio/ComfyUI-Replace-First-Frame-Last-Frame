@@ -8,8 +8,6 @@ class ReplaceFirstLastFrames:
         return {
             "required": {
                 "image_sequence": ("IMAGE",),
-                "start_frames": ("IMAGE",),
-                "last_frames": ("IMAGE",),
                 "num_start_frames": ("INT", {
                     "default": 1,
                     "min": 0,
@@ -25,6 +23,10 @@ class ReplaceFirstLastFrames:
                     "display": "number"
                 }),
             },
+            "optional": {
+                "start_frames": ("IMAGE",),
+                "last_frames": ("IMAGE",),
+            },
         }
     
     RETURN_TYPES = ("IMAGE",)
@@ -32,24 +34,34 @@ class ReplaceFirstLastFrames:
     FUNCTION = "replace_frames"
     CATEGORY = "image/animation"
     
-    def replace_frames(self, image_sequence, start_frames, last_frames, num_start_frames, num_last_frames):
+    def replace_frames(self, image_sequence, num_start_frames, num_last_frames, start_frames=None, last_frames=None):
         # Get dimensions from the main video
         target_height = image_sequence.shape[1]
         target_width = image_sequence.shape[2]
         target_channels = image_sequence.shape[3]
         
-        # Resize start_frames and last_frames to match video dimensions
-        start_frames = self._resize_frames(start_frames, target_height, target_width, target_channels)
-        last_frames = self._resize_frames(last_frames, target_height, target_width, target_channels)
-        
         # Get batch sizes
         num_images = image_sequence.shape[0]
-        num_start_available = start_frames.shape[0]
-        num_last_available = last_frames.shape[0]
         
         # Edge case: If no frames to replace, return original
         if num_start_frames <= 0 and num_last_frames <= 0:
             return (image_sequence,)
+        
+        # Check if start_frames is provided when needed
+        if num_start_frames > 0 and start_frames is None:
+            # If start_frames is not provided but needed, use original frames
+            start_frames = image_sequence[:min(num_start_frames, num_images)]
+        
+        # Check if last_frames is provided when needed
+        if num_last_frames > 0 and last_frames is None:
+            # If last_frames is not provided but needed, use original frames
+            last_frames = image_sequence[max(0, num_images - num_last_frames):]
+        
+        # Resize start_frames and last_frames to match video dimensions if they exist
+        if start_frames is not None:
+            start_frames = self._resize_frames(start_frames, target_height, target_width, target_channels)
+        if last_frames is not None:
+            last_frames = self._resize_frames(last_frames, target_height, target_width, target_channels)
         
         # Clamp the number of frames to replace to reasonable values
         # If the total requested exceeds available frames, adjust proportionally
@@ -88,10 +100,10 @@ class ReplaceFirstLastFrames:
             num_last_frames = adjusted_last
         
         # Prepare start frames to insert
-        start_to_insert = self._prepare_frames(start_frames, num_start_frames) if num_start_frames > 0 else None
+        start_to_insert = self._prepare_frames(start_frames, num_start_frames) if (num_start_frames > 0 and start_frames is not None) else None
         
         # Prepare last frames to insert
-        last_to_insert = self._prepare_frames(last_frames, num_last_frames) if num_last_frames > 0 else None
+        last_to_insert = self._prepare_frames(last_frames, num_last_frames) if (num_last_frames > 0 and last_frames is not None) else None
         
         # Build the output sequence
         parts = []
